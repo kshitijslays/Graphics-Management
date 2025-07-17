@@ -4,12 +4,13 @@ import Signup from './pages/Signup';
 import RoleSelect from './pages/RoleSelect';
 import Dashboard from './pages/Dashboard';
 import Home from './pages/Home';
+import Layout from './layout/layout';
 
 export default function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<Layout />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/roles" element={<RoleSelect />} />
