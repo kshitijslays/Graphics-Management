@@ -1,40 +1,63 @@
-const User = require('../models/User');
-const jwt = require('jsonwebtoken');
+import UserModel from '../models/User.js';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
-// Helper to sign JWT
-const signToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
-  });
-};
-
-exports.signup = async (req, res) => {
+export const registerUser = async (req, res) => {
+  const { name, email, password } = req.body;
   try {
-    const newUser = await User.create(req.body);
-    const token = signToken(newUser._id);
-    res.status(201).json({
-      status: 'success',
-      token,
-      data: { user: newUser }
-    });
-  } catch (err) {
-    res.status(400).json({ status: 'fail', message: err.message });
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = await UserModel.create({ name, email, password: hashedPassword });
+    res.status(201).json(newUser);
+  } catch (error) {
+    res.status(500).json({ error: 'User already exists or invalid data' });
   }
 };
 
-exports.login = async (req, res) => {
+export const loginUser = async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password)
-    return res.status(400).json({ message: 'Please provide email and password' });
-
-  const user = await User.findOne({ email }).select('+password');
-  if (!user || !(await user.comparePassword(password)))
-    return res.status(401).json({ message: 'Incorrect email or password' });
-
-  const token = signToken(user._id);
-  res.status(200).json({
-    status: 'success',
-    token,
-    data: { user }
-  });
+  try {
+    const user = await UserModel.findOne({ email });
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Invalid password' });
+    }
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+    res.json({ token });
+  } catch (error) {
+    res.status(500).json({ error: 'Server Error' });
+  }
 };
+
+export const getUser = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const user = await UserModel.findById(id);
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: 'Server Error' });
+  }
+};
+
+export const updateUser = async (req, res) => {
+  const { id } = req.params;
+  const { name, email, password } = req.body;
+  try {
+    const user = await UserModel.findByIdAndUpdate(id, { name, email, password }, { new: true });
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: 'Server Error' });
+  }
+};
+
+export const deleteUser = async (req, res) => {
+  const { id } = req.params;
+  try {
+    await UserModel.findByIdAndDelete(id);
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Server Error' });
+  }
+}; 
